@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Belt Warehouse Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .sidebar {
+            background-color: #343a40;
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .card {
+            border: none;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background-color: white;
+            border-bottom: 1px solid #e3e6f0;
+            font-weight: bold;
+            color: #4e73df;
+        }
+
+        .kpi-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #5a5c69;
+        }
+
+        .kpi-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #858796;
+        }
+
+        .text-success {
+            color: #1cc88a !important;
+        }
+
+        .text-danger {
+            color: #e74a3b !important;
+        }
+
+        .filter-label {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            color: #adb5bd;
+        }
+
+        select,
+        input {
+            background-color: #495057;
+            border: 1px solid #6c757d;
+            color: white;
+            width: 100%;
+            padding: 5px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-2 sidebar">
+                <h4 class="mb-4">📊 BB Analytics</h4>
+
+                <div class="mb-3">
+                    <div class="filter-label">Start Date</div>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="mb-3">
+                    <div class="filter-label">End Date</div>
+                    <input type="date" id="endDate">
+                </div>
+                <div class="mb-3">
+                    <div class="filter-label">Floor</div>
+                    <select id="floorSelect" onchange="updateZoneOptions()">
+                        <option value="All">All Floors</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <div class="filter-label">Picking Zone</div>
+                    <select id="zoneSelect">
+                        <option value="All">All Zones</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary w-100 mt-3" onclick="updateDashboard()">Analyze Data</button>
+                <hr>
+                <small class="text-muted">Data Source: Internal Sheet</small>
+            </div>
+
+            <div class="col-md-10 p-4">
+
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card p-3 border-left-primary">
+                            <div class="kpi-label">Total Units Picked</div>
+                            <div class="kpi-value" id="kpiTotalPicked">0</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card p-3">
+                            <div class="kpi-label">Total IRT (Errors)</div>
+                            <div class="kpi-value text-danger" id="kpiTotalIRT">0</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card p-3">
+                            <div class="kpi-label">Global IRT %</div>
+                            <div class="kpi-value" id="kpiIRTPercent">0%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card p-3">
+                            <div class="kpi-label">Process Sigma Level</div>
+                            <div class="kpi-value text-success" id="kpiSigma">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">Pareto Analysis: Errors by Zone (Top 10)</div>
+                            <div class="card-body">
+                                <canvas id="paretoChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">Quality vs Volume Matrix</div>
+                            <div class="card-body">
+                                <canvas id="scatterChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">Defect Trend Over Time</div>
+                            <div class="card-body">
+                                <canvas id="trendChart" height="80"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">Zone Performance Details</div>
+                            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm table-striped" id="dataTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Floor</th>
+                                            <th>Zone</th>
+                                            <th>Picked</th>
+                                            <th>IRT</th>
+                                            <th>IRT %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    const floorSelect = document.getElementById('floorSelect');
+    floors.forEach(f => {
+    let option = document.createElement("option");
+    option.value = f;
+    option.text = f;
+    floorSelect.add(option);
+    });
+
+    // Initial Zone Load
+    updateZoneOptions();
+    }
+
+    function updateZoneOptions() {
+    const selectedFloor = document.getElementById('floorSelect').value;
+    const zoneSelect = document.getElementById('zoneSelect');
+    zoneSelect.innerHTML = '<option value="All">All Zones</option>';
+
+    let filteredZones = rawData;
+    if (selectedFloor !== 'All') {
+    filteredZones = rawData.filter(d => d.floor === selectedFloor);
+    }
+
+    const uniqueZones = [...new Set(filteredZones.map(item => item.zone))].sort();
+    uniqueZones.forEach(z => {
+    let option = document.createElement("option");
+    option.value = z;
+    option.text = z;
+    zoneSelect.add(option);
+    });
+    }
+
+    // ---------------------------------------------------------
+    // 3. CORE LOGIC (The "Black Belt" Brain)
+    // ---------------------------------------------------------
+    function updateDashboard() {
+    // A. Filter Data
+    const start = new Date(document.getElementById('startDate').value);
+    const end = new Date(document.getElementById('endDate').value);
+    const floor = document.getElementById('floorSelect').value;
+    const zone = document.getElementById('zoneSelect').value;
+
+    const data = rawData.filter(d => {
+    const dDate = new Date(d.date);
+    return dDate >= start && dDate <= end && (floor==='All' || d.floor===floor) && (zone==='All' || d.zone===zone); });
+        // B. Calculate Global KPIs const totalPicked=data.reduce((sum, d)=> sum + d.picked, 0);
+        const totalIRT = data.reduce((sum, d) => sum + d.irt, 0);
+        const irPercent = totalPicked > 0 ? (totalIRT / totalPicked) * 100 : 0;
+
+        // Approx Sigma Calculation (Yield to Sigma estimate)
+        // Yield = 1 - (DPMO / 1,000,000) ... simplified here as NormInv of Yield
+        // Using a simple lookup approximation for the dashboard
+        let sigma = 0;
+        const yieldVal = 1 - (totalIRT / totalPicked);
+        if (yieldVal > 0.9999966) sigma = 6;
+        else if (yieldVal > 0.99977) sigma = 5;
+        else if (yieldVal > 0.9938) sigma = 4;
+        else if (yieldVal > 0.9332) sigma = 3; // Most likely range
+        else if (yieldVal > 0.6915) sigma = 2;
+        else sigma = 1;
+
+        // C. Update DOM
+        document.getElementById('kpiTotalPicked').innerText = totalPicked.toLocaleString();
+        document.getElementById('kpiTotalIRT').innerText = totalIRT.toLocaleString();
+        document.getElementById('kpiIRTPercent').innerText = irPercent.toFixed(2) + "%";
+        document.getElementById('kpiSigma').innerText = "~" + sigma + " σ";
+
+        updateTable(data);
+
+        // D. Prepare Chart Data
+        renderPareto(data);
+        renderScatter(data);
+        renderTrend(data);
+        }
+
+        // ---------------------------------------------------------
+        // 4. CHART RENDERING
+        // ---------------------------------------------------------
+
+        // 1. Pareto (Top defect generators)
+        function renderPareto(data) {
+        // Group by Zone, Sum IRT
+        const zoneMap = {};
+        data.forEach(d => {
+        if (!zoneMap[d.zone]) zoneMap[d.zone] = 0;
+        zoneMap[d.zone] += d.irt;
+        });
+
+        // Convert to array and sort desc
+        let sortedZones = Object.keys(zoneMap).map(key => ({ zone: key, irt: zoneMap[key] }));
+        sortedZones.sort((a, b) => b.irt - a.irt);
+        sortedZones = sortedZones.slice(0, 10); // Top 10
+
+        const ctx = document.getElementById('paretoChart').getContext('2d');
+        if (paretoChart) paretoChart.destroy();
+
+        paretoChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+        labels: sortedZones.map(d => d.zone),
+        datasets: [{
+        label: 'Total Errors (IRT)',
+        data: sortedZones.map(d => d.irt),
+        backgroundColor: '#4e73df'
+        }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+        });
+        }
+
+        // 2. Scatter (Volume vs Quality) - The Black Belt Matrix
+        function renderScatter(data) {
+        // Group by Zone, Avg IRT%, Total Picked
+        const zoneStats = {};
+        data.forEach(d => {
+        if (!zoneStats[d.zone]) zoneStats[d.zone] = { picked: 0, irt: 0 };
+        zoneStats[d.zone].picked += d.picked;
+        zoneStats[d.zone].irt += d.irt;
+        });
+
+        const scatterData = Object.keys(zoneStats).map(key => {
+        const picked = zoneStats[key].picked;
+        const rate = (zoneStats[key].irt / picked) * 100;
+        return { x: picked, y: rate, zone: key };
+        });
+
+        const ctx = document.getElementById('scatterChart').getContext('2d');
+        if (scatterChart) scatterChart.destroy();
+
+        scatterChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+        datasets: [{
+        label: 'Zones',
+        data: scatterData,
+        backgroundColor: scatterData.map(d => d.y > 5 ? '#e74a3b' : '#1cc88a') // Red if > 5% error
+        }]
+        },
+        options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+        x: { title: { display: true, text: 'Total Picked (Volume)' } },
+        y: { title: { display: true, text: 'IRT % (Error Rate)' } }
+        },
+        plugins: {
+        tooltip: {
+        callbacks: {
+        label: function (ctx) {
+        return ctx.raw.zone + ": " + ctx.raw.y.toFixed(2) + "% Error";
+        }
+        }
+        }
+        }
+        }
+        });
+        }
+
+        // 3. Trend Line
+        function renderTrend(data) {
+        // Group by Date
+        const dateMap = {};
+        data.forEach(d => {
+        if (!dateMap[d.date]) dateMap[d.date] = { picked: 0, irt: 0 };
+        dateMap[d.date].picked += d.picked;
+        dateMap[d.date].irt += d.irt;
+        });
+
+        // Sort dates
+        const sortedDates = Object.keys(dateMap).sort();
+        const trendData = sortedDates.map(date => {
+        return (dateMap[date].irt / dateMap[date].picked) * 100;
+        });
+
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        if (trendChart) trendChart.destroy();
+
+        trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+        labels: sortedDates,
+        datasets: [{
+        label: 'Daily IRT %',
+        data: trendData,
+        borderColor: '#36b9cc',
+        tension: 0.1,
+        fill: false
+        }]
+        },
+        options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+        y: { beginAtZero: true }
+        }
+        }
+        });
+        }
+
+        function updateTable(data) {
+        const tbody = document.querySelector("#dataTable tbody");
+        tbody.innerHTML = "";
+        // Show max 50 rows for performance
+        data.slice(0, 50).forEach(d => {
+        const row = `<tr>
+            <td>${d.date}</td>
+            <td>${d.floor}</td>
+            <td>${d.zone}</td>
+            <td>${d.picked}</td>
+            <td>${d.irt}</td>
+            <td>${d.irtPercent.toFixed(2)}%</td>
+        </tr>`;
+        tbody.innerHTML += row;
+        });
+        }
+
+        </script>
+</body>
+
+</html>
